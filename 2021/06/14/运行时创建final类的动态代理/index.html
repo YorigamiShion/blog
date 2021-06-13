@@ -1,0 +1,587 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=&#34;auto&#34;>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/blog/img/favicon.png">
+  <link rel="icon" href="/blog/img/favicon.png">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="description" content="众所周知，jdk动态代理只能代理实现，而cglib代理需要创建对应类的子类因此不能代理final类。
+那么有没有办法强行创建final类的子类呢？如果创建了会有什么后果？">
+  <meta name="author" content="YorigamiShion">
+  <meta name="keywords" content="">
+  
+  <title>运行时创建final类的动态代理 - 码农妙妙屋</title>
+
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" />
+
+
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@4.0.0/github-markdown.min.css" />
+  <link  rel="stylesheet" href="/blog/lib/hint/hint.min.css" />
+
+  
+    
+    
+      
+      <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10.7.2/styles/github-gist.min.css" />
+    
+  
+
+  
+    <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.css" />
+  
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_ba1fz6golrf.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_kmeydafke9r.css">
+
+
+<link  rel="stylesheet" href="/blog/css/main.css" />
+
+<!-- 自定义样式保持在最底部 -->
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    var CONFIG = {"hostname":"yorigamishion.github.io","root":"/blog/","version":"1.8.11","typing":{"enable":true,"typeSpeed":50,"cursorChar":"_","loop":false},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"right","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"copy_btn":true,"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"baidu":null,"google":null,"gtag":null,"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null}},"search_path":"/local-search.xml"};
+  </script>
+  <script  src="/blog/js/utils.js" ></script>
+  <script  src="/blog/js/color-schema.js" ></script>
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+
+<body>
+  <header style="height: 70vh;">
+    <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand"
+       href="/blog/">&nbsp;<strong>Fluid</strong>&nbsp;</a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/blog/">
+                <i class="iconfont icon-home-fill"></i>
+                首页
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/blog/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                归档
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/blog/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                分类
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/blog/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                标签
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/blog/about/">
+                <i class="iconfont icon-user-fill"></i>
+                关于
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" data-toggle="modal" data-target="#modalSearch">&nbsp;<i
+                class="iconfont icon-search"></i>&nbsp;</a>
+          </li>
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self">&nbsp;<i
+                class="iconfont icon-dark" id="color-toggle-icon"></i>&nbsp;</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <div class="banner" id="banner" parallax=true
+         style="background: url('/blog/img/default.png') no-repeat center center;
+           background-size: cover;">
+      <div class="full-bg-img">
+        <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+          <div class="page-header text-center fade-in-up">
+            <span class="h2" id="subtitle" title="运行时创建final类的动态代理">
+              
+            </span>
+
+            
+              <div class="mt-3">
+  
+  
+    <span class="post-meta">
+      <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+      <time datetime="2021-06-14 00:52" pubdate>
+        2021年6月14日 凌晨
+      </time>
+    </span>
+  
+</div>
+
+<div class="mt-1">
+  
+    
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-chart"></i>
+      1.5k 字
+    </span>
+  
+
+  
+    
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-clock-fill"></i>
+      
+      
+      27
+       分钟
+    </span>
+  
+
+  
+  
+</div>
+
+            
+          </div>
+
+          
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="d-none d-lg-block col-lg-2"></div>
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div class="py-5" id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">运行时创建final类的动态代理</h1>
+            
+            <div class="markdown-body">
+              <p>众所周知，jdk动态代理只能代理实现，而cglib代理需要创建对应类的子类因此不能代理final类。</p>
+<p>那么有没有办法强行创建final类的子类呢？如果创建了会有什么后果？</p>
+<span id="more"></span>
+
+<h2 id="环境"><a href="#环境" class="headerlink" title="环境"></a>环境</h2><p>AdoptOpenJDK 1.8, spring boot 2.4.5, spring-boot-starter-aop, spring-boot-starter-test</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">IBase</span> </span>&#123;<br>    <span class="hljs-function">String <span class="hljs-title">func</span><span class="hljs-params">()</span></span>;<br>&#125;<br><br><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Base</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IBase</span> </span>&#123;<br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-function"><span class="hljs-keyword">public</span> String <span class="hljs-title">func</span><span class="hljs-params">()</span> </span>&#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;From Base.class&quot;</span>;<br>    &#125;<br>&#125;<br><br><span class="hljs-keyword">final</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FinalBase</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IBase</span> </span>&#123;<br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-function"><span class="hljs-keyword">public</span> String <span class="hljs-title">func</span><span class="hljs-params">()</span> </span>&#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;From FinalBase.class&quot;</span>;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="代理非final类"><a href="#代理非final类" class="headerlink" title="代理非final类"></a>代理非final类</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">final</span> MethodInterceptor mi = iv -&gt; &#123;<br>    <span class="hljs-keyword">if</span> (<span class="hljs-string">&quot;func&quot;</span>.equals(iv.getMethod().getName())) &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;From Proxy&quot;</span>;<br>    &#125;<br>    <span class="hljs-keyword">return</span> iv.proceed();<br>&#125;;<br><br><span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">proxyBase</span><span class="hljs-params">()</span> </span>&#123;<br>    Base target = <span class="hljs-keyword">new</span> Base();<br>    ProxyFactory factory = <span class="hljs-keyword">new</span> ProxyFactory(target);<br>    factory.setProxyTargetClass(<span class="hljs-keyword">true</span>);<br>    factory.addAdvice(mi);<br>    Base proxy = (Base) factory.getProxy();<br><br>    Assertions.assertEquals(<span class="hljs-string">&quot;From Proxy&quot;</span>, ((IBase) proxy).func());<br>    Assertions.assertEquals(<span class="hljs-string">&quot;From Proxy&quot;</span>, proxy.func())<br>    Assertions.assertEquals(<span class="hljs-string">&quot;From Proxy&quot;</span>, IBase.class.getMethod(<span class="hljs-string">&quot;func&quot;</span>).invoke(proxy));;<br>    Assertions.assertEquals(<span class="hljs-string">&quot;From Proxy&quot;</span>, Base.class.getMethod(<span class="hljs-string">&quot;func&quot;</span>).invoke(proxy));<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>结果符合预期，无论是静态调用还是反射动态调用都成功走了动态代理的逻辑。</p>
+<h2 id="代理final类"><a href="#代理final类" class="headerlink" title="代理final类"></a>代理final类</h2><h3 id="生成子类时抛出异常"><a href="#生成子类时抛出异常" class="headerlink" title="生成子类时抛出异常"></a>生成子类时抛出异常</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">proxyFinalBase</span><span class="hljs-params">()</span> </span>&#123;<br>    FinalBase target = <span class="hljs-keyword">new</span> FinalBase();<br>    ProxyFactory factory = <span class="hljs-keyword">new</span> ProxyFactory(target);<br>    factory.setProxyTargetClass(<span class="hljs-keyword">true</span>);<br>    factory.addAdvice(mi);<br>    FinalBase proxy = (FinalBase) factory.getProxy();<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>出现异常如下</p>
+<figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs stylus">Caused by: java<span class="hljs-selector-class">.lang</span><span class="hljs-selector-class">.IllegalArgumentException</span>: Cannot subclass final class demo<span class="hljs-selector-class">.FinalBase</span><br>	at org<span class="hljs-selector-class">.springframework</span><span class="hljs-selector-class">.cglib</span><span class="hljs-selector-class">.proxy</span><span class="hljs-selector-class">.Enhancer</span><span class="hljs-selector-class">.generateClass</span>(Enhancer<span class="hljs-selector-class">.java</span>:<span class="hljs-number">660</span>)<br>	at org<span class="hljs-selector-class">.springframework</span><span class="hljs-selector-class">.cglib</span><span class="hljs-selector-class">.core</span><span class="hljs-selector-class">.DefaultGeneratorStrategy</span><span class="hljs-selector-class">.generate</span>(DefaultGeneratorStrategy<span class="hljs-selector-class">.java</span>:<span class="hljs-number">25</span>)<br>	at org<span class="hljs-selector-class">.springframework</span><span class="hljs-selector-class">.cglib</span><span class="hljs-selector-class">.core</span><span class="hljs-selector-class">.ClassLoaderAwareGeneratorStrategy</span><span class="hljs-selector-class">.generate</span>(ClassLoaderAwareGeneratorStrategy<span class="hljs-selector-class">.java</span>:<span class="hljs-number">39</span>)<br>	at org<span class="hljs-selector-class">.springframework</span><span class="hljs-selector-class">.cglib</span><span class="hljs-selector-class">.core</span><span class="hljs-selector-class">.AbstractClassGenerator</span><span class="hljs-selector-class">.generate</span>(AbstractClassGenerator<span class="hljs-selector-class">.java</span>:<span class="hljs-number">358</span>)<br>	at org<span class="hljs-selector-class">.springframework</span><span class="hljs-selector-class">.cglib</span><span class="hljs-selector-class">.proxy</span><span class="hljs-selector-class">.Enhancer</span><span class="hljs-selector-class">.generate</span>(Enhancer<span class="hljs-selector-class">.java</span>:<span class="hljs-number">585</span>)<br>    ......<br></code></pre></td></tr></table></figure>
+
+<p>在 <code>TypeUtils.isFinal(sc.getModifiers())</code> 中因为检测到class的modifiers含有final标识抛出了这个异常。而modifiers的判断是通过查询target对象中klass指针指向的对象偏移一定字节后的某一位决定的，这就需要了解java对象和klass对象的结构。</p>
+<h3 id="java对象和klass结构"><a href="#java对象和klass结构" class="headerlink" title="java对象和klass结构"></a>java对象和klass结构</h3><h4 id="java引用类型对象"><a href="#java引用类型对象" class="headerlink" title="java引用类型对象"></a>java引用类型对象</h4><p>对于非数组对象，指向地址的前8个字节为MarkWord，之后4/8个字节(根据是否开启指针压缩)为klass指针，而class对象的modifiers就在klass指针指向的对象之中。</p>
+<h4 id="klass结构"><a href="#klass结构" class="headerlink" title="klass结构"></a>klass结构</h4><table>
+<thead>
+<tr>
+<th>Index</th>
+<th>Field Name</th>
+<th>Size</th>
+<th>Offset</th>
+<th>Field Type</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Header</td>
+<td>8</td>
+<td>+0</td>
+<td>Unknown</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Klass</td>
+<td>Pointer Size</td>
+<td>+8</td>
+<td><code>*Klass</code> to java/lang/Class</td>
+</tr>
+<tr>
+<td>3</td>
+<td>C++ Vtbl</td>
+<td>Pointer Size</td>
+<td>+16</td>
+<td>Unknown Pointer</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Layout Helper</td>
+<td>4</td>
+<td>+24</td>
+<td>i32</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Super Offset</td>
+<td>4</td>
+<td>+28</td>
+<td>u32</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Name</td>
+<td>Pointer Size</td>
+<td>+32</td>
+<td><code>*Symbol</code> (linked list type?)</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Secondary Super Cache</td>
+<td>Pointer Size</td>
+<td>+40</td>
+<td><code>*Klass</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td>Secondary Supers</td>
+<td>Pointer Size</td>
+<td>+48</td>
+<td><code>Array&lt;*Klass&gt;</code></td>
+</tr>
+<tr>
+<td>9</td>
+<td>Primary Supers</td>
+<td>Pointer Size * 8</td>
+<td>+56</td>
+<td><code>*Klass[]</code></td>
+</tr>
+<tr>
+<td>10</td>
+<td>Java Mirror</td>
+<td>Pointer Size</td>
+<td>+120</td>
+<td><code>oop</code> (pointer type, representation of this class’s <code>java/lang/Class</code> instance)</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Super</td>
+<td>Pointer Size</td>
+<td>+128</td>
+<td><code>*Klass</code></td>
+</tr>
+<tr>
+<td>12</td>
+<td>First Subclass</td>
+<td>Pointer Size</td>
+<td>+126</td>
+<td><code>*Klass</code> or <code>NULL</code></td>
+</tr>
+<tr>
+<td>13</td>
+<td>Sibling</td>
+<td>Pointer Size</td>
+<td>+144</td>
+<td><code>*Klass</code> for linked list</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Modifiers</td>
+<td>4</td>
+<td>+152</td>
+<td>i32</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Access Flags</td>
+<td>4</td>
+<td>+156</td>
+<td>u32</td>
+</tr>
+</tbody></table>
+<h3 id="通过Unsafe修改内存移除final修饰后"><a href="#通过Unsafe修改内存移除final修饰后" class="headerlink" title="通过Unsafe修改内存移除final修饰后"></a>通过Unsafe修改内存移除final修饰后</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">proxyFinalBase</span><span class="hljs-params">()</span> </span>&#123;<br>    <span class="hljs-comment">// 先通过反射获取unsafe实例。</span><br>    Field theUnsafe = Unsafe.class.getDeclaredField(<span class="hljs-string">&quot;theUnsafe&quot;</span>);<br>    theUnsafe.setAccessible(<span class="hljs-keyword">true</span>);<br>    Unsafe unsafe = (Unsafe) theUnsafe.get(<span class="hljs-keyword">null</span>);<br><br><br>    FinalBase target = <span class="hljs-keyword">new</span> FinalBase();<br>    <span class="hljs-comment">// 从target对象起始位置偏移8字节开始读取一个int，得到压缩后的klass指针值，左移3位得到实际的地址</span><br>    <span class="hljs-keyword">long</span> klassPtr = ((<span class="hljs-keyword">long</span>) unsafe.getInt(target, <span class="hljs-number">8L</span>)) &lt;&lt; <span class="hljs-number">3</span>;<br>    <span class="hljs-comment">// 修改Modifiers </span><br>    unsafe.putInt(klassPtr + <span class="hljs-number">152</span>, unsafe.getInt(klassPtr + <span class="hljs-number">152</span>) &amp; ~Modifier.FINAL);<br>    <span class="hljs-comment">// 修改Access Flags，ClassLoader.defineClass方法会检测这里</span><br>    unsafe.putInt(klassPtr + <span class="hljs-number">156</span>, unsafe.getInt(klassPtr + <span class="hljs-number">156</span>) &amp; ~Modifier.FINAL);<br><br>    ProxyFactory factory = <span class="hljs-keyword">new</span> ProxyFactory(target);<br>    factory.setProxyTargetClass(<span class="hljs-keyword">true</span>);<br>    factory.addAdvice(mi);<br>    FinalBase proxy = (FinalBase) factory.getProxy();<br><br>    Assertions.assertEquals(<span class="hljs-string">&quot;From Proxy&quot;</span>, ((IBase) proxy).func());<br>    Assertions.assertEquals(<span class="hljs-string">&quot;From FinalBase.class&quot;</span>, proxy.func())<br>    Assertions.assertEquals(<span class="hljs-string">&quot;From Proxy&quot;</span>, IBase.class.getMethod(<span class="hljs-string">&quot;func&quot;</span>).invoke(proxy));;<br>    Assertions.assertEquals(<span class="hljs-string">&quot;From FinalBase.class&quot;</span>, FinalBase.class.getMethod(<span class="hljs-string">&quot;func&quot;</span>).invoke(proxy));<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>通过修改内存后的确是可以生成子类了，但是这里出现了一个很神奇的现象：根据proxy对象的静态类型不同，为IBase时的直接和反射调用都触发了动态代理逻辑，而以FinalBase为静态类型时都是没有触发动态代理逻辑的。这涉及到了jvm字节码和多态性的具体实现。</p>
+<h2 id="jvm字节码和多态"><a href="#jvm字节码和多态" class="headerlink" title="jvm字节码和多态"></a>jvm字节码和多态</h2><h3 id="方法调用的字节码"><a href="#方法调用的字节码" class="headerlink" title="方法调用的字节码"></a>方法调用的字节码</h3><p>在jvm中，方法调用对应的字节码有一下几种：</p>
+<ul>
+<li><strong>invokespecial</strong> 调用构造方法、private方法和super方法，直接跳转对应方法地址</li>
+<li><strong>invokevirtual</strong> 调用一个class对象除了invokespecial的部分以外的所有方法，动态分发，最常用</li>
+<li><strong>invokeinterface</strong> 调用接口的方法，动态分发</li>
+<li><strong>invokestatic</strong> 调用静态方法</li>
+<li><strong>invokedymatic</strong> 一般用于lambda表达式</li>
+</ul>
+<h3 id="多态的实现"><a href="#多态的实现" class="headerlink" title="多态的实现"></a>多态的实现</h3><p>和c++不同，java默认所有方法都是带有virtual的(当然virtual private方法是没意义的)，而实现方式也大体上一致，分为itable和itable两种。</p>
+<p><strong>itable</strong> 记录了一个class对象实现的每一个接口和实现这个接口的实际方法的地址。储存结构类似于<code>&#123;interface:&#123;method:address,...&#125;,...&#125;</code>，会根据静态代码中的接口类型去查找当前对象所实现的方法地址。</p>
+<p><strong>vtable</strong> 实现方式和c++没什么差别，每当一个class对象构造时，会把<code>&#123;method:address,...&#125;</code>覆盖到他子类的储存结构中，在多层级继承的情况下，相应的方法层次覆盖，在调用时再去查找这个方法的实际地址。</p>
+<h3 id="例子中的问题"><a href="#例子中的问题" class="headerlink" title="例子中的问题"></a>例子中的问题</h3><p>HotSpot VM的静态分析会观察到final class，尽管FinalBase对象的方法调用字节码是<code>INVOKEVIRTUAL demo/FinalBase.func ()Ljava/lang/String;</code>，但实际上会采用一个名为fast_invokevfinal的内部字节码，这个不需要查vtable获取方法地址而是直接跳转调用。所以当proxy对象的静态类型是FinalBase时，jvm会忽略proxy对象的实际方法也就是动态代理的地址，而是会让程序跳转到FinalBase中定义的方法，也就是导致了例子中的情况。</p>
+<p>而当proxy对象的静态类型时IBase时，方法调用的字节码是<code>INVOKEINTERFACE demo/IBase.func ()Ljava/lang/String; (itf)</code>，查找了实际方法地址，也就触发了动态代理的逻辑，输出了修改后的结果。</p>
+<h2 id="感想"><a href="#感想" class="headerlink" title="感想"></a>感想</h2><p>只是突发奇想试着继承一下final class，结果牵扯出那么多东西。</p>
+
+            </div>
+            <hr>
+            <div>
+              <div class="post-metas mb-3">
+                
+                  <div class="post-meta mr-3">
+                    <i class="iconfont icon-category"></i>
+                    
+                      <a class="hover-with-bg" href="/blog/categories/java/">java</a>
+                    
+                  </div>
+                
+                
+                  <div class="post-meta">
+                    <i class="iconfont icon-tags"></i>
+                    
+                      <a class="hover-with-bg" href="/blog/tags/java/">java</a>
+                    
+                      <a class="hover-with-bg" href="/blog/tags/cglib/">cglib</a>
+                    
+                      <a class="hover-with-bg" href="/blog/tags/jvm/">jvm</a>
+                    
+                  </div>
+                
+              </div>
+              
+                <p class="note note-warning">
+                  
+                    本博客所有文章除特别声明外，均采用 <a target="_blank" href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh" rel="nofollow noopener noopener">CC BY-SA 4.0 协议</a> ，转载请注明出处！
+                  
+                </p>
+              
+              
+                <div class="post-prevnext">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/blog/2021/06/13/%E4%BB%8A%E5%A4%A9%E5%BC%80%E5%A7%8B%E5%86%99%E5%8D%9A%E5%AE%A2/">
+                        <span class="hidden-mobile">今天开始写博客</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+    
+      <div class="d-none d-lg-block col-lg-2 toc-container" id="toc-ctn">
+        <div id="toc">
+  <p class="toc-header"><i class="iconfont icon-list"></i>&nbsp;目录</p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+      </div>
+    
+  </div>
+</div>
+
+<!-- Custom -->
+
+
+    
+
+    
+      <a id="scroll-top-button" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v"
+                 for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+
+    
+  </main>
+
+  <footer class="text-center mt-5 py-3">
+  <div class="footer-content">
+     <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+  </div>
+  
+
+  
+
+  
+</footer>
+
+
+  <!-- SCRIPTS -->
+  
+  <script  src="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js" ></script>
+<script  src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js" ></script>
+<script  src="/blog/js/events.js" ></script>
+<script  src="/blog/js/plugins.js" ></script>
+
+<!-- Plugins -->
+
+
+  
+    <script  src="/blog/js/img-lazyload.js" ></script>
+  
+
+
+
+  
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/tocbot@4.12.3/dist/tocbot.min.js" ></script>
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.js" ></script>
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/anchor-js@4.3.1/anchor.min.js" ></script>
+
+
+
+  <script defer src="https://cdn.jsdelivr.net/npm/clipboard@2.0.8/dist/clipboard.min.js" ></script>
+
+
+
+  <script  src="/blog/js/local-search.js" ></script>
+
+
+
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/typed.js@2.0.12/lib/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var title = document.getElementById('subtitle').title;
+      
+      typing(title)
+      
+    })(window, document);
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- 主题的启动项 保持在最底部 -->
+<script  src="/blog/js/boot.js" ></script>
+
+
+</body>
+</html>
