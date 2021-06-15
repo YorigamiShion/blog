@@ -31,7 +31,7 @@
     
     
       
-      <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10.7.2/styles/github-gist.min.css" />
+      <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10.7.2/styles/atom-one-light.min.css" />
     
   
 
@@ -69,7 +69,7 @@
     <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
   <div class="container">
     <a class="navbar-brand"
-       href="/blog/">&nbsp;<strong>Fluid</strong>&nbsp;</a>
+       href="/blog/">&nbsp;<strong>码农妙妙屋</strong>&nbsp;</a>
 
     <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
             data-target="#navbarSupportedContent"
@@ -375,7 +375,7 @@
 </ul>
 <h3 id="多态的实现"><a href="#多态的实现" class="headerlink" title="多态的实现"></a>多态的实现</h3><p>和c++不同，java默认所有方法都是带有virtual的(当然virtual private方法是没意义的)，而实现方式也大体上一致，分为itable和itable两种。</p>
 <p><strong>itable</strong> 记录了一个class对象实现的每一个接口和实现这个接口的实际方法的地址。储存结构类似于<code>&#123;interface:&#123;method:address,...&#125;,...&#125;</code>，会根据静态代码中的接口类型去查找当前对象所实现的方法地址。</p>
-<p><strong>vtable</strong> 实现方式和c++没什么差别，每当一个class对象构造时，会把<code>&#123;method:address,...&#125;</code>覆盖到他子类的储存结构中，在多层级继承的情况下，相应的方法层次覆盖，在调用时再去查找这个方法的实际地址。</p>
+<p><strong>vtable</strong> 实现方式和c++没什么差别，每当一个class对象构造时，会把<code>&#123;method:address,...&#125;</code>覆盖到他基类的储存结构中，在多层级继承的情况下，相应的方法层次覆盖，在调用时再去查找这个方法的实际地址。</p>
 <h3 id="例子中的问题"><a href="#例子中的问题" class="headerlink" title="例子中的问题"></a>例子中的问题</h3><p>HotSpot VM的静态分析会观察到final class，尽管FinalBase对象的方法调用字节码是<code>INVOKEVIRTUAL demo/FinalBase.func ()Ljava/lang/String;</code>，但实际上会采用一个名为fast_invokevfinal的内部字节码，这个不需要查vtable获取方法地址而是直接跳转调用。所以当proxy对象的静态类型是FinalBase时，jvm会忽略proxy对象的实际方法也就是动态代理的地址，而是会让程序跳转到FinalBase中定义的方法，也就是导致了例子中的情况。</p>
 <p>而当proxy对象的静态类型时IBase时，方法调用的字节码是<code>INVOKEINTERFACE demo/IBase.func ()Ljava/lang/String; (itf)</code>，查找了实际方法地址，也就触发了动态代理的逻辑，输出了修改后的结果。</p>
 <h2 id="感想"><a href="#感想" class="headerlink" title="感想"></a>感想</h2><p>只是突发奇想试着继承一下final class，结果牵扯出那么多东西。</p>
@@ -492,6 +492,30 @@
      <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
   </div>
   
+  <div class="statistics">
+    
+    
+
+    
+      
+        <!-- 不蒜子统计PV -->
+        <span id="busuanzi_container_site_pv" style="display: none">
+            总访问量 
+            <span id="busuanzi_value_site_pv"></span>
+             次
+          </span>
+      
+      
+        <!-- 不蒜子统计UV -->
+        <span id="busuanzi_container_site_uv" style="display: none">
+            总访客数 
+            <span id="busuanzi_value_site_uv"></span>
+             人
+          </span>
+      
+    
+  </div>
+
 
   
 
@@ -550,6 +574,8 @@
   <script  src="/blog/js/local-search.js" ></script>
 
 
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
 
 
 
