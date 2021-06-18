@@ -1,6 +1,7 @@
 ---
 title: 运行时创建final类的动态代理
 tags:
+  - 研究
   - java
   - cglib
   - jvm
